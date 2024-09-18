@@ -1,3 +1,3 @@
 resource "github_organization_settings" "this" {
-  billing_email = "billing@example.com"
+  billing_email = var.billing_email
 }

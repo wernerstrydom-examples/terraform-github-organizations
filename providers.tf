@@ -1,3 +1,3 @@
 provider "github" {
-  owner = "wernerstrydom-examples"
+  owner = var.owner
 }
