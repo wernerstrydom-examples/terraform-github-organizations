@@ -12,9 +12,30 @@ permissions:
   contents: read
 
 jobs:
+  discover:
+    name: 'Discover'
+    runs-on: ubuntu-latest
+    outputs:
+      configurations: ${{ steps.discover.outputs.configurations }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Discover Variable Files
+        id: discover
+        run: |
+          TFVARS=$(find . -name "*.tfvars" -exec basename {} .tfvars \; | jq -R . | jq -sc .)
+          echo $TFVARS
+          echo "configurations=$TFVARS" >> "$GITHUB_OUTPUT"
+
   terraform:
     name: 'Terraform'
     runs-on: ubuntu-latest
+    needs: discover
+    strategy:
+      matrix:
+        configuration: ${{ fromJSON(needs.discover.outputs.configurations) }}
+
     defaults:
       run:
         shell: bash
@@ -29,11 +50,15 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      # create a new workspace
+      - name: Terraform Workspace
+        run: terraform workspace new ${{ matrix.configuration }} || terraform workspace select ${{ matrix.configuration }}
+
       - name: Terraform Plan
         env:
           TF_IN_AUTOMATION: true
           GITHUB_TOKEN: ${{ secrets.X_GITHUB_TOKEN }}
-        run: terraform plan -input=false -out=tfplan
+        run: terraform plan -input=false -out=tfplan -var-file=${{ matrix.configuration }}.tfvars
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
